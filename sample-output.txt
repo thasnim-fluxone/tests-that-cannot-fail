@@ -1,0 +1,54 @@
+Baseline: type check clean, 12 tests passing.
+
+MUTATION  factory_drops_forwarding
+          buildService() stops forwarding the correlation ID
+  SURVIVED  01-shared-fixture :: hollow: correlation ID reaches the supplier
+  KILLED    01-shared-fixture :: fixed: correlation ID reaches the supplier
+            -> expected undefined to be 'abc' // Object.is equality
+  SURVIVED  02-bypassed-construction :: hollow: forwards the correlation ID
+  KILLED    02-bypassed-construction :: fixed: forwards the correlation ID
+            -> expected undefined to be 'abc' // Object.is equality
+
+MUTATION  inverted_guard
+          an inverted guard returns early, so no order lines are processed
+  SURVIVED  03-negative-without-execution :: hollow: no correlation ID is invented
+  KILLED    03-negative-without-execution :: fixed: no correlation ID is invented
+            -> expected +0 to be 2 // Object.is equality
+  SURVIVED  04-non-empty-collection :: hollow: the reservation is audited
+  KILLED    04-non-empty-collection :: fixed: the reservation is audited
+            -> expected [ [ 'inbound', 'o-1' ] ] to deep equally contain [ 'reservation', 'sku-1' ]
+
+MUTATION  audit_only_first_reservation
+          only the first reservation is added to the audit trail
+  SURVIVED  04-non-empty-collection :: hollow: the reservation is audited
+  KILLED    04-non-empty-collection :: fixed: the reservation is audited
+            -> expected [ [ 'inbound', 'o-1' ], …(1) ] to deep equally contain [ 'reservation', 'sku-2' ]
+
+MUTATION  seq_before_write
+          the sequence number advances per entry, before the write
+  SURVIVED  05-counter-before-durable-write :: hollow: a failed batch leaves nothing behind
+  KILLED    05-counter-before-durable-write :: fixed: a failed batch leaves nothing behind
+            -> expected 2 to deeply equal +0
+
+MUTATION  parent_on_every_line
+          parentOrderId is sent on every reservation, not just the first
+  SURVIVED  06-unobservable-downstream :: hollow: the parent is set once
+  KILLED    06-unobservable-downstream :: fixed: the parent is only on the first reservation
+            -> expected { sku: 'sku-2', qty: 1, …(1) } to not have property "parentOrderId"
+
+MUTATION  INVALID_undefined_name
+          renames a call to a function that does not exist
+  Type check FAILS: TS2552: Cannot find name 'outboundHdrs'. Did you mean 'outboundHeaders'?
+  Tests: 10 failed with an error (ReferenceError), 0 on an assertion.
+  VERDICT   INVALID MUTATION. It does not compile, so the red build proves
+            nothing about whether any test checks this line.
+
+SUMMARY
+  failure mode                       mutation                   hollow     fixed
+  01-shared-fixture                  factory_drops_forwarding   SURVIVED   KILLED
+  02-bypassed-construction           factory_drops_forwarding   SURVIVED   KILLED
+  03-negative-without-execution      inverted_guard             SURVIVED   KILLED
+  04-non-empty-collection            inverted_guard             SURVIVED   KILLED
+  04-non-empty-collection            audit_only_first_reservation SURVIVED   KILLED
+  05-counter-before-durable-write    seq_before_write           SURVIVED   KILLED
+  06-unobservable-downstream         parent_on_every_line       SURVIVED   KILLED
